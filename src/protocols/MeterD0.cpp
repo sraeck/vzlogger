@@ -52,6 +52,33 @@
 
 #define STX 0x02
 
+static int64_t timeval_subtract(struct timeval *x, struct timeval *y)
+{
+	struct timeval temp = *y;
+	y = &temp;
+	/* Perform the carry for the later subtraction by updating y. */
+	if (x->tv_usec < y->tv_usec) {
+		int nsec = (y->tv_usec - x->tv_usec) / 1000000 + 1;
+		y->tv_usec -= 1000000 * nsec;
+		y->tv_sec += nsec;
+	}
+	if (x->tv_usec - y->tv_usec > 1000000) {
+		int nsec = (x->tv_usec - y->tv_usec) / 1000000;
+		y->tv_usec += 1000000 * nsec;
+		y->tv_sec -= nsec;
+	}
+	/* Compute the time remaining to wait.
+	tv_usec is certainly positive. */
+	//result->tv_sec = x->tv_sec - y->tv_sec;
+	//result->tv_usec = x->tv_usec - y->tv_usec;
+	/* Return 1 if result is negative. */
+	//return x->tv_sec < y->tv_sec;
+	return (int64_t)(x->tv_sec - y->tv_sec) * 1000000 + (int64_t)(x->tv_usec - y->tv_usec);
+}
+
+static struct timeval sample_time;
+static int64_t maxdiff;
+
 MeterD0::MeterD0(std::list<Option> &options)
 	: Protocol("d0"), _host(""), _device(""), _auto_ack(false), _wait_sync_end(false),
 	  _read_timeout_s(10), _baudrate_change_delay_ms(0), _reaction_time_ms(200) // default to 200ms
@@ -520,6 +547,20 @@ ssize_t MeterD0::read(std::vector<Reading> &rds, size_t max_readings) {
 
 		case VENDOR: // VENDOR has 3 Bytes
 			if ((byte == '\r') || (byte == '\n') || (byte == '/')) {
+				if (byte == '/') {
+					struct timeval now;
+					gettimeofday(&now, NULL);
+					int64_t diff = timeval_subtract(&now, &sample_time);
+					if (diff > 500000) {
+						print(log_debug, "Sample time %ld.%06ld --> %ld.%06ld, diff %llu",
+							name().c_str(), sample_time.tv_sec, sample_time.tv_usec, now.tv_sec, now.tv_usec, diff);
+						sample_time = now;
+					} else {
+						if(diff > maxdiff || maxdiff - diff >= 250000) maxdiff = diff;
+						print(log_warning/*log_debug*/, "Sample time %lu.%06lu kept, diff %7llu / %7llu",
+							name().c_str(), sample_time.tv_sec, sample_time.tv_usec, diff, maxdiff);
+					}
+				}
 				byte_iterator = number_of_tuples = 0;
 				break;
 			}
@@ -794,7 +835,7 @@ ssize_t MeterD0::read(std::vector<Reading> &rds, size_t max_readings) {
 						Obis obis(obis_code);
 						ReadingIdentifier *rid(new ObisIdentifier(obis));
 						rds[number_of_tuples].identifier(rid);
-						rds[number_of_tuples].time();
+						rds[number_of_tuples].time(sample_time);
 						number_of_tuples++;
 					} catch (vz::VZException &e) {
 						print(log_alert, "Failed to parse obis code (%s)", name().c_str(),
