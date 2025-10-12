@@ -156,14 +156,15 @@ void print(log_level_t level, const char *format, const char *id, ...) {
 
 	struct timeval now;
 	struct tm *timeinfo;
-	char prefix[24];
+	char prefix[64];
 	size_t pos = 0;
 
 	gettimeofday(&now, NULL);
 	timeinfo = localtime(&now.tv_sec);
 
 	/* format timestamp */
-	pos += strftime(prefix + pos, 18, "[%b %d %H:%M:%S]", timeinfo);
+	pos += strftime(prefix + pos, sizeof(prefix) - pos, "[%b %d %H:%M:%S", timeinfo);
+	pos += snprintf(prefix + pos, sizeof(prefix) - pos, ".%06lu]", now.tv_usec);
 
 	/* format section */
 	if (id) {
