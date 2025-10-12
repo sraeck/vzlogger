@@ -243,6 +243,10 @@ ssize_t MeterSML::read(std::vector<Reading> &rds, size_t n) {
 	unsigned char buffer[SML_BUFFER_LEN];
 	size_t bytes, m = 0;
 
+	fd_set rfds;
+	struct timeval tv;
+	int retval;
+
 	sml_file *file;
 	sml_get_list_response *body;
 	sml_list *entry;
@@ -260,6 +264,16 @@ ssize_t MeterSML::read(std::vector<Reading> &rds, size_t n) {
 		print(log_debug, "sending pullsequenz send (len:%d is:%d).", name().c_str(), _pull.size(),
 			  wlen);
 	}
+
+	print(log_warning, "before select, tid %d", name().c_str(), gettid());
+	FD_ZERO(&rfds);
+	FD_SET(_fd, &rfds);
+	tv.tv_sec = 1;
+	tv.tv_usec = 0;
+	retval = select(1, &rfds, NULL, NULL, &tv);
+	print(log_warning, "after select, result %d", name().c_str(), retval);
+	sleep(1);
+	print(log_warning, "after sleep", name().c_str());
 
 	/* wait until we receive a new datagram from the meter (blocking read) */
 	CANCELLABLE(bytes = sml_transport_read(_fd, buffer, SML_BUFFER_LEN));

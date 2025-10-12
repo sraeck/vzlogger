@@ -560,6 +560,8 @@ ssize_t MeterD0::read(std::vector<Reading> &rds, size_t max_readings) {
 						print(log_warning/*log_debug*/, "Sample time %lu.%06lu kept, diff %7llu / %7llu",
 							name().c_str(), sample_time.tv_sec, sample_time.tv_usec, diff, maxdiff);
 					}
+					// wait 400ms for remaining data to arrive
+					usleep(400000);
 				}
 				byte_iterator = number_of_tuples = 0;
 				break;
