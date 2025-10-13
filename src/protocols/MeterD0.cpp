@@ -77,7 +77,9 @@ static int64_t timeval_subtract(struct timeval *x, struct timeval *y)
 }
 
 static struct timeval sample_time;
-static int64_t maxdiff;
+static int64_t maxdiff = 0;
+static int64_t sumdiff = 0;
+static int64_t countdiff = 0;
 
 MeterD0::MeterD0(std::list<Option> &options)
 	: Protocol("d0"), _host(""), _device(""), _auto_ack(false), _wait_sync_end(false),
@@ -551,14 +553,19 @@ ssize_t MeterD0::read(std::vector<Reading> &rds, size_t max_readings) {
 					struct timeval now;
 					gettimeofday(&now, NULL);
 					int64_t diff = timeval_subtract(&now, &sample_time);
-					if (diff > 500000) {
-						print(log_debug, "Sample time %ld.%06ld --> %ld.%06ld, diff %llu",
-							name().c_str(), sample_time.tv_sec, sample_time.tv_usec, now.tv_sec, now.tv_usec, diff);
+					if (diff > 510000) {
+						int64_t avg = 0;
+						if (diff >= 990000 && diff <= 1010000) {
+							sumdiff += diff; countdiff++;
+							avg = sumdiff / countdiff;
+						}
+						print(log_warning/*log_debug*/, "Sample time %ld.%06ld --> %ld.%06ld, diff %7lld / avg %7lld, fd %d",
+							name().c_str(), sample_time.tv_sec, sample_time.tv_usec, now.tv_sec, now.tv_usec, diff, avg, _fd);
 						sample_time = now;
 					} else {
-						if(diff > maxdiff || maxdiff - diff >= 250000) maxdiff = diff;
-						print(log_warning/*log_debug*/, "Sample time %lu.%06lu kept, diff %7llu / %7llu",
-							name().c_str(), sample_time.tv_sec, sample_time.tv_usec, diff, maxdiff);
+						if(diff > maxdiff || maxdiff - diff >= 10000) maxdiff = diff;
+						print(log_warning/*log_debug*/, "Sample time %lu.%06lu kept, diff %7lld / max %7lld, fd %d",
+							name().c_str(), sample_time.tv_sec, sample_time.tv_usec, diff, maxdiff, _fd);
 					}
 					// wait 400ms for remaining data to arrive
 					usleep(400000);
