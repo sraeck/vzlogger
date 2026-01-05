@@ -107,6 +107,7 @@ class Channel {
 	}
 
 	int duplicates() const { return _duplicates; }
+	int pos_neg() const { return _pos_neg; }
 
   private:
 	static int instances;
@@ -127,6 +128,7 @@ class Channel {
 	std::string _uuid;        // unique identifier for middleware
 	std::string _apiProtocol; // protocol of api to use for logging
 	int _duplicates;          // how to handle duplicate values (see conf)
+	int _pos_neg;             // limit to positive or negative values
 };
 
 #endif /* _CHANNEL_H_ */

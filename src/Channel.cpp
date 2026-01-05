@@ -39,7 +39,7 @@ int Channel::instances = 0;
 Channel::Channel(const std::list<Option> &pOptions, const std::string apiProtocol,
 				 const std::string uuid, ReadingIdentifier::Ptr pIdentifier)
 	: _thread_running(false), _options(pOptions), _buffer(new Buffer()), _identifier(pIdentifier),
-	  _last(0), _uuid(uuid), _apiProtocol(apiProtocol), _duplicates(0) {
+	  _last(0), _uuid(uuid), _apiProtocol(apiProtocol), _duplicates(0), _pos_neg(0) {
 	id = instances++;
 
 	// set channel name
@@ -83,6 +83,19 @@ Channel::Channel(const std::list<Option> &pOptions, const std::string apiProtoco
 		std::stringstream oss;
 		oss << e.what();
 		print(log_alert, "Invalid parameter duplicates (%s)", name(), oss.str().c_str());
+		throw;
+	}
+
+	try {
+		_pos_neg = optlist.lookup_int(pOptions, "posneg");
+		if (_pos_neg < -1 || _pos_neg > 1)
+			throw vz::VZException("posneg can only be -1, 0 or 1");
+	} catch (vz::OptionNotFoundException &e) {
+		// using default value if not specified (from above)
+	} catch (vz::VZException &e) {
+		std::stringstream oss;
+		oss << e.what();
+		print(log_alert, "Invalid parameter posneg (%s)", name(), oss.str().c_str());
 		throw;
 	}
 

@@ -129,8 +129,18 @@ void *reading_thread(void *arg) {
 									(*ch)->last(&rds[i]);
 								}
 
-								print(log_info, "Adding reading to queue (value=%.2f ts=%lld)",
-									  (*ch)->name(), rds[i].value(), rds[i].time_ms());
+								if ((*ch)->pos_neg() < 0 && rds[i].value() > 0.0) {
+									rds[i].value(0.0);
+									print(log_info, "Adding reading to queue (value=%.2f ts=%lld) value>0 set to 0",
+										(*ch)->name(), rds[i].value(), rds[i].time_ms());
+								} else if ((*ch)->pos_neg() > 0 && rds[i].value() < 0.0) {
+									rds[i].value(0.0);
+									print(log_info, "Adding reading to queue (value=%.2f ts=%lld) value<0 set to 0",
+										(*ch)->name(), rds[i].value(), rds[i].time_ms());
+								} else {
+									print(log_info, "Adding reading to queue (value=%.2f ts=%lld)",
+										(*ch)->name(), rds[i].value(), rds[i].time_ms());
+								}
 								(*ch)->push(rds[i]);
 
 								// provide data to push data server:
